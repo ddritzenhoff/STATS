@@ -45,14 +45,6 @@ func NewServer(logger *log.Logger, serverAddr string, ss Slacker) *Server {
 	return s
 }
 
-// handleMonthlyUpdate generates and monthly slack summary and publishes it.
-func (s *Server) handleMonthlyUpdate(w http.ResponseWriter, r *http.Request) {
-	err := s.SlackService.HandleMonthlyUpdate(w, r)
-	if err != nil {
-		s.logger.Println(err)
-	}
-}
-
 // Open establishes a connection to an address and begins listening for requests.
 func (s *Server) Open() (err error) {
 	// Open a listener on the bind address
@@ -64,11 +56,19 @@ func (s *Server) Open() (err error) {
 	return nil
 }
 
+// handleMonthlyUpdate generates and monthly slack summary and publishes it.
+func (s *Server) handleMonthlyUpdate(w http.ResponseWriter, r *http.Request) {
+	err := s.SlackService.HandleMonthlyUpdate(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+}
+
 // handleEvents handles Slack push events.
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	err := s.SlackService.HandleEvents(w, r)
 	if err != nil {
-		s.logger.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -16,7 +17,6 @@ import (
 	"github.com/ddritzenhoff/stats/sqlite"
 	"github.com/ddritzenhoff/stats/sqlite/gen"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/peterbourgon/ff/v3"
 )
 
 func main() {
@@ -38,25 +38,28 @@ func main() {
 
 // Run initializes the member and Slack services and starts the HTTP server.
 func Run(ctx context.Context) error {
-	// setup flags
-	fs := flag.NewFlagSet("statsd", flag.ContinueOnError)
-	var (
-		listenAddr         = fs.String("listen-addr", "localhost:8080", "listen address")
-		dsn                = fs.String("dsn", "~/programming/databases/stats.db", "database connection string")
-		slackSigningSecret = fs.String("signing-secret", "", "to verify Slack requests")
-		slackBotSigningKey = fs.String("bot-signing-key", "", "to send messages into the Slack workspace")
-		slackChannelID     = fs.String("channel-id", "", "to send messages into a specific channel")
-		_                  = fs.String("config", "", "config file (extension: .json)")
-	)
+	var configPath string
+	flag.StringVar(&configPath, "config", "", "config file (extension: .json)")
+	flag.Parse()
 
-	err := ff.Parse(fs, os.Args[1:],
-		ff.WithConfigFileFlag("config"),
-		ff.WithConfigFileParser(ff.JSONParser),
-	)
+	configPath, err := expand(configPath)
 	if err != nil {
-		return fmt.Errorf("Run ff.Parse: %w", err)
+		return fmt.Errorf("could not expand config path: %w", err)
 	}
-	DSNPath, err := expandDSN(*dsn)
+
+	file, err := os.Open(configPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var config Config
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&config); err != nil {
+		return fmt.Errorf("Error decoding JSON: %w", err)
+	}
+
+	DSNPath, err := expandDSN(config.DSN)
 	if err != nil {
 		return fmt.Errorf("Run expandDSN: %w", err)
 	}
@@ -68,13 +71,14 @@ func Run(ctx context.Context) error {
 	queries := gen.New(db)
 
 	memberService := sqlite.NewMemberService(queries, db)
+	leaderboardService := sqlite.NewLeaderboardService(queries, db)
 
-	slackService, err := http.NewSlackService(memberService, *slackSigningSecret, *slackBotSigningKey, *slackChannelID)
+	slackService, err := http.NewSlackService(memberService, leaderboardService, config.Slack.SigningSecret, config.Slack.BotSigningKey, config.Slack.ChannelID)
 	if err != nil {
 		return fmt.Errorf("Run NewSlackService: %w", err)
 	}
 	logger := log.New(os.Stdout, "statsd ", log.LstdFlags)
-	httpServer := http.NewServer(logger, *listenAddr, slackService)
+	httpServer := http.NewServer(logger, config.ListenAddress, slackService)
 	if err := httpServer.Open(); err != nil {
 		return fmt.Errorf("Run: %w", err)
 	}
@@ -109,4 +113,14 @@ func expandDSN(dsn string) (string, error) {
 		return dsn, nil
 	}
 	return expand(dsn)
+}
+
+type Config struct {
+	ListenAddress string `json:"listen_address"`
+	DSN           string `json:"dsn"`
+	Slack         struct {
+		SigningSecret string `json:"signing_secret"`
+		BotSigningKey string `json:"bot_signing_key"`
+		ChannelID     string `json:"channel_id"`
+	} `json:"slack"`
 }
