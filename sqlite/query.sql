@@ -9,9 +9,11 @@ WHERE slack_uid = ? AND month_year = ? LIMIT 1;
 -- name: CreateMember :one
 INSERT INTO members (
     month_year,
-    slack_uid
+    slack_uid,
+    created_at,
+    updated_at
 ) VALUES (
-    ?, ?
+    ?, ?, ?, ?
 )
 RETURNING *;
 
@@ -32,7 +34,8 @@ LIMIT 1;
 -- name: UpdateMember :exec
 UPDATE members
 SET received_likes = ?,
-received_dislikes = ?
+received_dislikes = ?,
+updated_at = ?
 WHERE id = ?;
 
 -- name: DeleteMember :exec

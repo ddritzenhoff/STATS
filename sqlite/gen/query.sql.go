@@ -12,9 +12,11 @@ import (
 const createMember = `-- name: CreateMember :one
 INSERT INTO members (
     month_year,
-    slack_uid
+    slack_uid,
+    created_at,
+    updated_at
 ) VALUES (
-    ?, ?
+    ?, ?, ?, ?
 )
 RETURNING id, month_year, slack_uid, received_likes, received_dislikes, created_at, updated_at
 `
@@ -22,10 +24,17 @@ RETURNING id, month_year, slack_uid, received_likes, received_dislikes, created_
 type CreateMemberParams struct {
 	MonthYear string
 	SlackUid  string
+	CreatedAt string
+	UpdatedAt string
 }
 
 func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error) {
-	row := q.db.QueryRowContext(ctx, createMember, arg.MonthYear, arg.SlackUid)
+	row := q.db.QueryRowContext(ctx, createMember,
+		arg.MonthYear,
+		arg.SlackUid,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
 	var i Member
 	err := row.Scan(
 		&i.ID,
@@ -143,17 +152,24 @@ func (q *Queries) MostLikesReceived(ctx context.Context, monthYear string) (Memb
 const updateMember = `-- name: UpdateMember :exec
 UPDATE members
 SET received_likes = ?,
-received_dislikes = ?
+received_dislikes = ?,
+updated_at = ?
 WHERE id = ?
 `
 
 type UpdateMemberParams struct {
 	ReceivedLikes    int64
 	ReceivedDislikes int64
+	UpdatedAt        string
 	ID               int64
 }
 
 func (q *Queries) UpdateMember(ctx context.Context, arg UpdateMemberParams) error {
-	_, err := q.db.ExecContext(ctx, updateMember, arg.ReceivedLikes, arg.ReceivedDislikes, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateMember,
+		arg.ReceivedLikes,
+		arg.ReceivedDislikes,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }

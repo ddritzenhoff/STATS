@@ -2,7 +2,7 @@ package http
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 
@@ -20,11 +20,11 @@ type Server struct {
 	// Dependencies
 	Addr         string
 	SlackService Slacker
-	logger       *log.Logger
+	logger       *slog.Logger
 }
 
 // NewServer creates a new instance of Server.
-func NewServer(logger *log.Logger, serverAddr string, ss Slacker) *Server {
+func NewServer(logger *slog.Logger, serverAddr string, ss Slacker) *Server {
 	s := &Server{
 		server: &http.Server{},
 		router: chi.NewRouter(),
@@ -40,7 +40,7 @@ func NewServer(logger *log.Logger, serverAddr string, ss Slacker) *Server {
 	s.router.Get("/ping", s.handlePing)
 	s.router.Post("/events", s.handleEvents)
 	s.router.Route("/slack/", func(r chi.Router) {
-		r.Get("/monthly-update", s.handleMonthlyUpdate)
+		r.Post("/monthly-update", s.handleMonthlyUpdate)
 	})
 	return s
 }
@@ -51,7 +51,7 @@ func (s *Server) Open() (err error) {
 	if s.ln, err = net.Listen("tcp", s.Addr); err != nil {
 		return fmt.Errorf("Open: %w", err)
 	}
-	s.logger.Printf("Listening on %s", s.Addr)
+	s.logger.Info("server listening", slog.String("address", s.Addr))
 	go s.server.Serve(s.ln)
 	return nil
 }
@@ -60,16 +60,18 @@ func (s *Server) Open() (err error) {
 func (s *Server) handleMonthlyUpdate(w http.ResponseWriter, r *http.Request) {
 	err := s.SlackService.HandleMonthlyUpdate(w, r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.logger.Error(err.Error())
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // handleEvents handles Slack push events.
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	err := s.SlackService.HandleEvents(w, r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.logger.Error(err.Error())
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // handlePing returns a basic 'pong' response when the server is pinged.

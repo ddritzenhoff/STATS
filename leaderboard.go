@@ -1,10 +1,8 @@
 package stats
 
-import "time"
-
 // Leaderboard represents the Slack user(s) with the most likes and dislikes for a particular month in a given year.
 type Leaderboard struct {
-	Date                       time.Time
+	Date                       MonthYear
 	MostReceivedLikesMember    Member
 	MostReceivedDislikesMember Member
 }
@@ -13,5 +11,5 @@ type Leaderboard struct {
 type LeaderboardService interface {
 	// FindLeaderboard retrives a Leadboard by its date (year and month).
 	// Returns ErrNotFound if no matches are found.
-	FindLeaderboard(Date time.Time) (*Leaderboard, error)
+	FindLeaderboard(Date MonthYear) (*Leaderboard, error)
 }

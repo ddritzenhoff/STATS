@@ -2,11 +2,8 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
-	"time"
 
 	"github.com/ddritzenhoff/stats"
-	"github.com/ddritzenhoff/stats/sqlite/gen"
 )
 
 // Ensure service implements interface.
@@ -14,22 +11,20 @@ var _ stats.LeaderboardService = (*LeaderboardService)(nil)
 
 // LeaderboardService represents a service for managing Members.
 type LeaderboardService struct {
-	query *gen.Queries
-	db    *sql.DB
+	db *DB
 }
 
 // NewLeaderboardService returns a new instance of MemberService.
-func NewLeaderboardService(query *gen.Queries, db *sql.DB) *LeaderboardService {
+func NewLeaderboardService(db *DB) *LeaderboardService {
 	return &LeaderboardService{
-		query: query,
-		db:    db,
+		db: db,
 	}
 }
 
 // FindLeaderboard retrives a Leadboard by its date (year and month).
 // Returns ErrNotFound if no matches are found.
-func (ls *LeaderboardService) FindLeaderboard(date time.Time) (*stats.Leaderboard, error) {
-	genMostReceivedLikesMember, err := ls.query.MostLikesReceived(context.TODO(), date.Format(stats.MonthYearLayout))
+func (ls *LeaderboardService) FindLeaderboard(date stats.MonthYear) (*stats.Leaderboard, error) {
+	genMostReceivedLikesMember, err := ls.db.query.MostLikesReceived(context.TODO(), date.String())
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +33,7 @@ func (ls *LeaderboardService) FindLeaderboard(date time.Time) (*stats.Leaderboar
 		return nil, err
 	}
 
-	genMostReceivedDislikesMember, err := ls.query.MostDislikesReceived(context.TODO(), date.Format(stats.MonthYearLayout))
+	genMostReceivedDislikesMember, err := ls.db.query.MostDislikesReceived(context.TODO(), date.String())
 	if err != nil {
 		return nil, err
 	}
