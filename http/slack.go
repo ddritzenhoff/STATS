@@ -146,96 +146,71 @@ func (s *Slack) HandleEvents(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// HandleReactionAddedEvent handles the event when a user reacts to the post of another user.
-func (s *Slack) HandleReactionAddedEvent(e *slackevents.ReactionAddedEvent) error {
-
-	if e.ItemUser == "USLACKBOT" || e.ItemUser == "" {
-		s.logger.Info("reaction to invalid target", slog.String("target slackUID", e.ItemUser), slog.String("reaction intiator", e.User))
+// HandleReactionEvent handles an event by updating the member with the specified slackUID.
+func (s *Slack) HandleReactionEvent(memSlackUID string, update func(m *stats.Member)) error {
+	if memSlackUID == "USLACKBOT" || memSlackUID == "" {
+		s.logger.Info("reaction to invalid target", slog.String("target slackUID", memSlackUID))
 		return nil
 	}
-
 	monthYear := stats.NewMonthYear(time.Now().UTC())
 
-	// Create the member (user being reacted to) if he does not already exist within the database.
-	itemMember, err := s.MemberService.FindMember(e.ItemUser, monthYear)
-	fmt.Printf("within reaction added event err: %s", err.Error())
+	// Create the member if he does not already exist within the database.
+	mem, err := s.MemberService.FindMember(memSlackUID, monthYear)
 	if errors.Is(err, stats.ErrNotFound) {
-		mem := &stats.Member{
-			SlackUID: e.User,
+		m := &stats.Member{
+			SlackUID: memSlackUID,
 			Date:     monthYear,
 		}
-		err := s.MemberService.CreateMember(mem)
+		err := s.MemberService.CreateMember(m)
 		if err != nil {
 			return fmt.Errorf("HandleReactionAddedEvent CreateMember itemMember: %w", err)
 		}
-		s.logger.Info("created new member", slog.String("slackUID", e.ItemUser), slog.String("date", monthYear.String()))
-		itemMember = mem
+		s.logger.Info("created new member", slog.String("slackUID", m.SlackUID), slog.String("date", monthYear.String()))
+		mem = m
 	} else if err != nil {
 		return fmt.Errorf("HandleReactionAddedEvent FindMember ItemUser: %w", err)
 	}
 
-	// Update the reactions.
-	if e.Reaction == ThumbsUp {
-		itemMember.ReceivedLikes += 1
-	} else if e.Reaction == ThumbsDown {
-		itemMember.ReceivedDislikes += 1
-	}
+	update(mem)
 
 	// Update the stats of the User being reacted to.
-	m, err := s.MemberService.UpdateMember(itemMember.ID, stats.MemberUpdate{
-		ReceivedLikes:    &itemMember.ReceivedLikes,
-		ReceivedDislikes: &itemMember.ReceivedDislikes,
+	m, err := s.MemberService.UpdateMember(mem.ID, stats.MemberUpdate{
+		ReceivedLikes:    &mem.ReceivedLikes,
+		ReceivedDislikes: &mem.ReceivedDislikes,
 	})
 	if err != nil {
 		return err
 	}
-	s.logger.Info("updated user", slog.String("slackUID", m.SlackUID), slog.Int("received likes", m.ReceivedLikes), slog.Int("received dislikes", m.ReceivedDislikes), slog.String("reaction", e.Reaction))
+	s.logger.Info("updated user", slog.String("slackUID", m.SlackUID), slog.Int("received likes", m.ReceivedLikes), slog.Int("received dislikes", m.ReceivedDislikes))
+	return nil
+}
+
+// HandleReactionAddedEvent handles the event when a user reacts to the post of another user.
+func (s *Slack) HandleReactionAddedEvent(e *slackevents.ReactionAddedEvent) error {
+	switch e.Reaction {
+	case ThumbsUp:
+		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+			m.ReceivedLikes += 1
+		})
+	case ThumbsDown:
+		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+			m.ReceivedDislikes += 1
+		})
+	}
 	return nil
 }
 
 // HandleReactionRemovedEvent handles the event when a user removes a reaction from another user's post.
 func (s *Slack) HandleReactionRemovedEvent(e *slackevents.ReactionRemovedEvent) error {
-
-	if e.ItemUser == "USLACKBOT" || e.ItemUser == "" {
-		s.logger.Info("reaction to invalid target", slog.String("target slackUID", e.ItemUser), slog.String("reaction intiator", e.User))
-		return nil
+	switch e.Reaction {
+	case ThumbsUp:
+		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+			m.ReceivedLikes = max(m.ReceivedLikes-1, 0)
+		})
+	case ThumbsDown:
+		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+			m.ReceivedDislikes = max(m.ReceivedDislikes-1, 0)
+		})
 	}
-
-	monthYear := stats.NewMonthYear(time.Now().UTC())
-
-	// Create the member (user being reacted to) if he does not already exist within the database.
-	itemMember, err := s.MemberService.FindMember(e.ItemUser, monthYear)
-	fmt.Printf("within reaction added event err: %s", err.Error())
-	if errors.Is(err, stats.ErrNotFound) {
-		mem := &stats.Member{
-			SlackUID: e.User,
-			Date:     monthYear,
-		}
-		err := s.MemberService.CreateMember(mem)
-		if err != nil {
-			return fmt.Errorf("HandleReactionAddedEvent CreateMember itemMember: %w", err)
-		}
-		s.logger.Info("created new member", slog.String("slackUID", e.ItemUser), slog.String("date", monthYear.String()))
-		itemMember = mem
-	} else if err != nil {
-		return fmt.Errorf("HandleReactionAddedEvent FindMember ItemUser: %w", err)
-	}
-
-	// Update the reactions.
-	if e.Reaction == ThumbsUp {
-		itemMember.ReceivedLikes = max(itemMember.ReceivedLikes-1, 0)
-	} else if e.Reaction == ThumbsDown {
-		itemMember.ReceivedDislikes = max(itemMember.ReceivedDislikes-1, 0)
-	}
-
-	// Update the stats of the User being reacted to.
-	m, err := s.MemberService.UpdateMember(itemMember.ID, stats.MemberUpdate{
-		ReceivedLikes:    &itemMember.ReceivedLikes,
-		ReceivedDislikes: &itemMember.ReceivedDislikes,
-	})
-	if err != nil {
-		return err
-	}
-	s.logger.Info("updated user", slog.String("slackUID", m.SlackUID), slog.Int("received likes", m.ReceivedLikes), slog.Int("received dislikes", m.ReceivedDislikes), slog.String("reaction", e.Reaction))
 	return nil
 }
