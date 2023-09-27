@@ -9,7 +9,7 @@ import (
 // i.e. `2024-02` represents February 2024.
 type MonthYear string
 
-const monthYearLayout string = "2006-01"
+const monthYearLayout string = "01-2006"
 
 // NewMonthYear returns a new instance of MonthYear.
 func NewMonthYear(t time.Time) MonthYear {
