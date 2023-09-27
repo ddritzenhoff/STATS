@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/ddritzenhoff/stats/sqlite/gen"
@@ -45,7 +46,7 @@ func (db *DB) Open() (err error) {
 	}
 
 	// Make the parent directory unless using an in-memory db.
-	if db.DSN != ":memory:" {
+	if !strings.Contains(db.DSN, ":memory:") {
 		if err := os.MkdirAll(filepath.Dir(db.DSN), 0700); err != nil {
 			return err
 		}
@@ -68,7 +69,6 @@ func (db *DB) Open() (err error) {
 	}
 
 	// Create tables if they don't exist.
-
 	if _, err := db.db.Exec(Schema); err != nil {
 		return fmt.Errorf("create tables: %w", err)
 	}

@@ -149,12 +149,13 @@ func (q *Queries) MostLikesReceived(ctx context.Context, monthYear string) (Memb
 	return i, err
 }
 
-const updateMember = `-- name: UpdateMember :exec
+const updateMember = `-- name: UpdateMember :one
 UPDATE members
 SET received_likes = ?,
 received_dislikes = ?,
 updated_at = ?
 WHERE id = ?
+RETURNING id, month_year, slack_uid, received_likes, received_dislikes, created_at, updated_at
 `
 
 type UpdateMemberParams struct {
@@ -164,12 +165,22 @@ type UpdateMemberParams struct {
 	ID               int64
 }
 
-func (q *Queries) UpdateMember(ctx context.Context, arg UpdateMemberParams) error {
-	_, err := q.db.ExecContext(ctx, updateMember,
+func (q *Queries) UpdateMember(ctx context.Context, arg UpdateMemberParams) (Member, error) {
+	row := q.db.QueryRowContext(ctx, updateMember,
 		arg.ReceivedLikes,
 		arg.ReceivedDislikes,
 		arg.UpdatedAt,
 		arg.ID,
 	)
-	return err
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.MonthYear,
+		&i.SlackUid,
+		&i.ReceivedLikes,
+		&i.ReceivedDislikes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

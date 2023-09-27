@@ -28,7 +28,7 @@ func NewMemberService(db *DB) *MemberService {
 
 // FindMemberByID retrieves a Member by ID.
 // Returns ErrNotFound if the ID does not exist.
-func (ms *MemberService) FindMemberByID(id int64) (*stats.Member, error) {
+func (ms *MemberService) FindMemberByID(id int) (*stats.Member, error) {
 	tx, err := ms.db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (ms *MemberService) FindMemberByID(id int64) (*stats.Member, error) {
 	defer tx.Rollback()
 
 	// fetch member
-	genMember, err := ms.db.query.FindMemberByID(context.TODO(), id)
+	genMember, err := ms.db.query.FindMemberByID(context.TODO(), int64(id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, stats.ErrNotFound
 	} else if err != nil {
@@ -80,6 +80,10 @@ func (ms *MemberService) CreateMember(m *stats.Member) error {
 		return fmt.Errorf("CreateMember: m reference is nil")
 	}
 
+	if err := m.Validate(); err != nil {
+		return err
+	}
+
 	m.CreatedAt = tx.now
 	m.UpdatedAt = m.CreatedAt
 
@@ -93,54 +97,59 @@ func (ms *MemberService) CreateMember(m *stats.Member) error {
 		return fmt.Errorf("CreateMember: %w", err)
 	}
 
-	m.ID = genMem.ID
-	m.ReceivedDislikes = genMem.ReceivedDislikes
-	m.ReceivedLikes = genMem.ReceivedLikes
+	m.ID = int(genMem.ID)
+	m.ReceivedDislikes = int(genMem.ReceivedDislikes)
+	m.ReceivedLikes = int(genMem.ReceivedLikes)
 
 	return tx.Commit()
 }
 
 // UpdateMember updates a Member.
-func (ms *MemberService) UpdateMember(id int64, upd stats.MemberUpdate) error {
+// Returns ErrNotFound if the member does not exist.
+func (ms *MemberService) UpdateMember(id int, upd stats.MemberUpdate) (*stats.Member, error) {
 	tx, err := ms.db.BeginTx(context.TODO(), nil)
 	if err != nil {
-		return fmt.Errorf("UpdateMember db.Begin: %w", err)
+		return nil, fmt.Errorf("UpdateMember db.Begin: %w", err)
 	}
 	defer tx.Rollback()
 
-	genMember, err := ms.db.query.FindMemberByID(context.TODO(), id)
+	m, err := ms.FindMemberByID(id)
 	if err != nil {
-		return fmt.Errorf("UpdateMember FindMemberByID: %w", err)
+		return nil, err
 	}
 
-	if upd.ReceivedLikes != nil {
-		genMember.ReceivedLikes = *upd.ReceivedLikes
+	if v := upd.ReceivedLikes; v != nil {
+		m.ReceivedLikes = *v
 	}
-	if upd.ReceivedDislikes != nil {
-		genMember.ReceivedDislikes = *upd.ReceivedDislikes
+	if v := upd.ReceivedDislikes; v != nil {
+		m.ReceivedDislikes = *v
 	}
-	err = ms.db.query.UpdateMember(context.TODO(), gen.UpdateMemberParams{
-		ReceivedLikes:    genMember.ReceivedLikes,
-		ReceivedDislikes: genMember.ReceivedDislikes,
+
+	genMem, err := ms.db.query.UpdateMember(context.TODO(), gen.UpdateMemberParams{
+		ReceivedLikes:    int64(m.ReceivedLikes),
+		ReceivedDislikes: int64(m.ReceivedDislikes),
 		UpdatedAt:        time.Now().UTC().Format(time.RFC3339),
-		ID:               id,
+		ID:               int64(id),
 	})
 	if err != nil {
-		return fmt.Errorf("UpdateMember: %w", err)
+		return nil, fmt.Errorf("UpdateMember: %w", err)
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return genMemberToMember(&genMem)
 }
 
 // DeleteMember permanently deletes a Member.
-func (ms *MemberService) DeleteMember(id int64) error {
+func (ms *MemberService) DeleteMember(id int) error {
 	tx, err := ms.db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	err = ms.db.query.DeleteMember(context.TODO(), id)
+	err = ms.db.query.DeleteMember(context.TODO(), int64(id))
 	if err != nil {
 		return fmt.Errorf("DeleteMember: %w", err)
 	}
@@ -161,5 +170,5 @@ func genMemberToMember(mem *gen.Member) (*stats.Member, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stats.NewMember(mem.ID, date, mem.SlackUid, mem.ReceivedLikes, mem.ReceivedDislikes, createdAt, updatedAt), nil
+	return &stats.Member{ID: int(mem.ID), Date: date, SlackUID: mem.SlackUid, ReceivedLikes: int(mem.ReceivedLikes), ReceivedDislikes: int(mem.ReceivedDislikes), CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
 }

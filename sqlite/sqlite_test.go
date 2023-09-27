@@ -1,12 +1,12 @@
 package sqlite_test
 
 import (
-	"database/sql"
 	"flag"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/ddritzenhoff/stats/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -19,12 +19,12 @@ func TestDB(t *testing.T) {
 }
 
 // MustOpenDB returns a new, open DB. Fatal on error.
-func MustOpenDB(tb testing.TB) *sql.DB {
+func MustOpenDB(tb testing.TB) *sqlite.DB {
 	tb.Helper()
 
 	// Write to an in-memory database by default.
 	// If the -dump flag is set, generate a temp file for the database.
-	dsn := ":memory:"
+	dsn := "file::memory:?cache=shared"
 	if *dump {
 		dir, err := os.MkdirTemp("", "")
 		if err != nil {
@@ -34,15 +34,15 @@ func MustOpenDB(tb testing.TB) *sql.DB {
 		println("DUMP=" + dsn)
 	}
 
-	db, err := sql.Open("sqlite3", dsn)
-	if err != nil {
+	db := sqlite.NewDB(dsn)
+	if err := db.Open(); err != nil {
 		tb.Fatal(err)
 	}
 	return db
 }
 
 // MustCloseDB closes the DB. Fatal on error.
-func MustCloseDB(tb testing.TB, db *sql.DB) {
+func MustCloseDB(tb testing.TB, db *sqlite.DB) {
 	tb.Helper()
 	if err := db.Close(); err != nil {
 		tb.Fatal(err)

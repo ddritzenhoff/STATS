@@ -31,12 +31,13 @@ WHERE month_year = ?
 ORDER BY received_dislikes DESC
 LIMIT 1;
 
--- name: UpdateMember :exec
+-- name: UpdateMember :one
 UPDATE members
 SET received_likes = ?,
 received_dislikes = ?,
 updated_at = ?
-WHERE id = ?;
+WHERE id = ?
+RETURNING *;
 
 -- name: DeleteMember :exec
 DELETE FROM members

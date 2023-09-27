@@ -1,6 +1,9 @@
 package stats
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // MonthYear represents a string with the following format: <year>-<month>.
 // i.e. `2024-02` represents February 2024.
@@ -29,33 +32,29 @@ func (my *MonthYear) String() string {
 
 // Member represents reactions pertaining to a particular member of the slack organization within a given month and year.
 type Member struct {
-	ID               int64     `json:"id"`
+	ID               int       `json:"id"`
 	Date             MonthYear `json:"date"`
 	SlackUID         string    `json:"slackUID"`
-	ReceivedLikes    int64     `json:"receivedLikes"`
-	ReceivedDislikes int64     `json:"receivedDislikes"`
+	ReceivedLikes    int       `json:"receivedLikes"`
+	ReceivedDislikes int       `json:"receivedDislikes"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `jons:"updatedAt"`
 }
 
-// NewMember returns a new instance of Member.
-func NewMember(id int64, date MonthYear, slackUID string, receivedLikes int64, receivedDislikes int64, createdAt time.Time, updatedAt time.Time) *Member {
-	return &Member{
-		ID:               id,
-		Date:             date,
-		SlackUID:         slackUID,
-		ReceivedLikes:    receivedLikes,
-		ReceivedDislikes: receivedDislikes,
-		CreatedAt:        createdAt,
-		UpdatedAt:        updatedAt,
+// Validate returns an error if the member contains invalid fields.
+// This only performs basic validation.
+func (m *Member) Validate() error {
+	if m.SlackUID == "" {
+		return fmt.Errorf("slack user ID required %w", ErrInvalid)
 	}
+	return nil
 }
 
 // MemberService represents a service for managing a Member.
 type MemberService interface {
 	// FindMemberByID retrieves a Member by ID.
 	// Returns ErrNotFound if the ID does not exist.
-	FindMemberByID(id int64) (*Member, error)
+	FindMemberByID(id int) (*Member, error)
 
 	// FindMember retrives a Member by his Slack User ID, and date (month and year).
 	// Returns ErrNotFound if no matches found.
@@ -65,14 +64,15 @@ type MemberService interface {
 	CreateMember(m *Member) error
 
 	// UpdateMember updates a Member.
-	UpdateMember(id int64, upd MemberUpdate) error
+	// Returns ErrNotFound if the member does not exist.
+	UpdateMember(id int, upd MemberUpdate) (*Member, error)
 
 	// DeleteMember permanently deletes a Member
-	DeleteMember(id int64) error
+	DeleteMember(id int) error
 }
 
 // MemberUpdate represents a set of fields to be updated via UpdateMember().
 type MemberUpdate struct {
-	ReceivedLikes    *int64
-	ReceivedDislikes *int64
+	ReceivedLikes    *int
+	ReceivedDislikes *int
 }

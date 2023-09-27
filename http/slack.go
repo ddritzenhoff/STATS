@@ -182,23 +182,15 @@ func (s *Slack) HandleReactionAddedEvent(e *slackevents.ReactionAddedEvent) erro
 	}
 
 	// Update the stats of the User being reacted to.
-	s.MemberService.UpdateMember(itemMember.ID, stats.MemberUpdate{
+	m, err := s.MemberService.UpdateMember(itemMember.ID, stats.MemberUpdate{
 		ReceivedLikes:    &itemMember.ReceivedLikes,
 		ReceivedDislikes: &itemMember.ReceivedDislikes,
 	})
 	if err != nil {
 		return err
 	}
-	s.logger.Info("updated user", slog.String("slackUID", itemMember.SlackUID), slog.Int64("received likes", itemMember.ReceivedLikes), slog.Int64("received dislikes", itemMember.ReceivedDislikes), slog.String("reaction", e.Reaction))
+	s.logger.Info("updated user", slog.String("slackUID", m.SlackUID), slog.Int("received likes", m.ReceivedLikes), slog.Int("received dislikes", m.ReceivedDislikes), slog.String("reaction", e.Reaction))
 	return nil
-}
-
-// max finds the max between two int64s and returns it.
-func max(a int64, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // HandleReactionRemovedEvent handles the event when a user removes a reaction from another user's post.
@@ -237,13 +229,13 @@ func (s *Slack) HandleReactionRemovedEvent(e *slackevents.ReactionRemovedEvent) 
 	}
 
 	// Update the stats of the User being reacted to.
-	err = s.MemberService.UpdateMember(itemMember.ID, stats.MemberUpdate{
+	m, err := s.MemberService.UpdateMember(itemMember.ID, stats.MemberUpdate{
 		ReceivedLikes:    &itemMember.ReceivedLikes,
 		ReceivedDislikes: &itemMember.ReceivedDislikes,
 	})
 	if err != nil {
 		return err
 	}
-	s.logger.Info("updated user", slog.String("slackUID", itemMember.SlackUID), slog.Int64("received likes", itemMember.ReceivedLikes), slog.Int64("received dislikes", itemMember.ReceivedDislikes), slog.String("reaction", e.Reaction))
+	s.logger.Info("updated user", slog.String("slackUID", m.SlackUID), slog.Int("received likes", m.ReceivedLikes), slog.Int("received dislikes", m.ReceivedDislikes), slog.String("reaction", e.Reaction))
 	return nil
 }
