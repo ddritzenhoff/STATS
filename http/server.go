@@ -1,13 +1,18 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
+
+// ShutdownTimeout is the time given for outstanding requests to finish before shutdown.
+const ShutdownTimeout = 1 * time.Second
 
 // Server represents an HTTP server. It is meant to wrap all http functionality
 // used by the application so that dependent packages (such as cmd/statsd) do
@@ -56,6 +61,13 @@ func (s *Server) Open() (err error) {
 	return nil
 }
 
+// Close gracefully shuts down the server.
+func (s *Server) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+	defer cancel()
+	return s.server.Shutdown(ctx)
+}
+
 // handleMonthlyUpdate generates and monthly slack summary and publishes it.
 func (s *Server) handleMonthlyUpdate(w http.ResponseWriter, r *http.Request) {
 	err := s.SlackService.HandleMonthlyUpdate(w, r)
@@ -76,7 +88,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 // handlePing returns a basic 'pong' response when the server is pinged.
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("pong"))
+	w.Write([]byte("pong\n"))
 }
 
 // handleNotFound returns a basic 'not found' response when the requested resource doesn't exist.

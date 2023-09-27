@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// MonthYear represents a string with the following format: <year>-<month>.
-// i.e. `2024-02` represents February 2024.
+// MonthYear represents a string with the following format: <month>-<year>.
+// i.e. `02-2024` represents February 2024.
 type MonthYear string
 
 const monthYearLayout string = "01-2006"
@@ -28,6 +28,15 @@ func NewMonthYearString(s string) (MonthYear, error) {
 // String returns the string representation of MonthYear.
 func (my *MonthYear) String() string {
 	return string(*my)
+}
+
+// Month returns the English name of the corresponding month.
+func (my *MonthYear) Month() string {
+	t, err := time.Parse(monthYearLayout, my.String())
+	if err != nil {
+		return ""
+	}
+	return t.Month().String()
 }
 
 // Member represents reactions pertaining to a particular member of the slack organization within a given month and year.

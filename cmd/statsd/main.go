@@ -18,6 +18,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// main is the entry point to the application binary.
 func main() {
 	// Setup signal handlers.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -25,61 +26,92 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	go func() { <-c; cancel() }()
 
+	m := NewMain()
+
 	// Execute program.
-	if err := Run(ctx); err != nil {
+	if err := m.Run(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	// Wait for CTRL-C.
 	<-ctx.Done()
+
+	// clean up program
+	m.Close()
+}
+
+// Main represents the program.
+type Main struct {
+	// Configuration path and parsed config data.
+	Config     Config
+	ConfigPath string
+
+	// SQLite database used by SQLite service implementations.
+	DB *sqlite.DB
+
+	// HTTP server for handling HTTP communication.
+	// SQLite services are attached to it before running.
+	HTTPServer *http.Server
+}
+
+// NewMain returns a new instance of Main.
+func NewMain() *Main {
+	return &Main{
+		Config:     DefaultConfig(),
+		ConfigPath: DefaultConfigPath,
+
+		DB: sqlite.NewDB(""),
+	}
 }
 
 // Run initializes the member and Slack services and starts the HTTP server.
-func Run(ctx context.Context) error {
+func (m *Main) Run(ctx context.Context) error {
 	var configPath string
 	flag.StringVar(&configPath, "config", "", "config file (extension: .json)")
 	flag.Parse()
 
-	configPath, err := expand(configPath)
-	if err != nil {
-		return fmt.Errorf("could not expand config path: %w", err)
-	}
-
-	file, err := os.Open(configPath)
+	cfg, err := ReadConfigFile(configPath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	var config Config
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&config); err != nil {
-		return fmt.Errorf("Error decoding JSON: %w", err)
-	}
-
-	DSN, err := expandDSN(config.DSN)
+	DSN, err := expandDSN(cfg.DB.DSN)
 	if err != nil {
 		return fmt.Errorf("Run expandDSN: %w", err)
 	}
 
-	db := sqlite.NewDB(DSN)
-	err = db.Open()
-	if err != nil {
+	m.DB = sqlite.NewDB(DSN)
+	if err := m.DB.Open(); err != nil {
 		return fmt.Errorf("db open: %w", err)
 	}
 
-	memberService := sqlite.NewMemberService(db)
-	leaderboardService := sqlite.NewLeaderboardService(db)
-
+	memberService := sqlite.NewMemberService(m.DB)
+	leaderboardService := sqlite.NewLeaderboardService(m.DB)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	slackService, err := http.NewSlackService(logger, memberService, leaderboardService, config.Slack.SigningSecret, config.Slack.BotSigningKey, config.Slack.ChannelID)
+	slackService, err := http.NewSlackService(logger, memberService, leaderboardService, cfg.Slack.SigningSecret, cfg.Slack.BotSigningKey, cfg.Slack.ChannelID)
 	if err != nil {
 		return fmt.Errorf("Run NewSlackService: %w", err)
 	}
-	httpServer := http.NewServer(logger, config.ListenAddress, slackService)
-	if err := httpServer.Open(); err != nil {
+
+	m.HTTPServer = http.NewServer(logger, cfg.HTTP.Addr, slackService)
+	if err := m.HTTPServer.Open(); err != nil {
 		return fmt.Errorf("Run: %w", err)
+	}
+
+	return nil
+}
+
+func (m *Main) Close() error {
+	if m.HTTPServer != nil {
+		if err := m.HTTPServer.Close(); err != nil {
+			return err
+		}
+	}
+	if m.DB != nil {
+		if err := m.DB.Close(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -114,12 +146,56 @@ func expandDSN(dsn string) (string, error) {
 	return expand(dsn)
 }
 
+const (
+	// DefaultConfigPath is the default path to the application configuration.
+	DefaultConfigPath = "~/statsd.conf"
+
+	// DefaultDSN is the default datasource name.
+	DefaultDSN = "~/.statsd/db"
+)
+
+// Config represents the CLI configuration file.
 type Config struct {
-	ListenAddress string `json:"listen_address"`
-	DSN           string `json:"dsn"`
-	Slack         struct {
+	DB struct {
+		DSN string `json:"dsn"`
+	} `json:"db"`
+
+	HTTP struct {
+		Addr string `json:"addr"`
+	}
+
+	Slack struct {
 		SigningSecret string `json:"signing_secret"`
 		BotSigningKey string `json:"bot_signing_key"`
 		ChannelID     string `json:"channel_id"`
 	} `json:"slack"`
+}
+
+// DefaultConfig returns a new instance of Config with defaults set.
+func DefaultConfig() Config {
+	var config Config
+	config.DB.DSN = DefaultDSN
+	return config
+}
+
+// ReadConfigFile decodes the config from the file path.
+func ReadConfigFile(filepath string) (*Config, error) {
+	configPath, err := expand(filepath)
+	if err != nil {
+		return nil, fmt.Errorf("could not expand config path: %w", err)
+	}
+
+	file, err := os.Open(configPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var config Config
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&config); err != nil {
+		return nil, fmt.Errorf("could not decode JSON: %w", err)
+	}
+
+	return &config, nil
 }

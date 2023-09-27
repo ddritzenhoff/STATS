@@ -9,8 +9,5 @@ Metrics to track:
 
 The payload in the POST request to `/slack/monthly-update` should take the form in which the value to the date key represents `<month>-<year>`. The following example corresponds to October 2023.
 
-```json
-{
-    "date":"10-2023"
-}
-```
+x-www-form-urlencoded form within body of POST request:
+key: `date` value: `10-2023`

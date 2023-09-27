@@ -50,14 +50,14 @@ func NewSlackService(logger *slog.Logger, ms stats.MemberService, ls stats.Leade
 	}, nil
 }
 
-// HandleMonthlyUpdate
+// HandleMonthlyUpdate sends a summary of the recorded metrics into Slack.
 func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) error {
 	err := r.ParseForm()
 	if err != nil {
 		return err
 	}
 
-	rawDate := r.FormValue("date")
+	rawDate := r.PostForm.Get("date")
 	if rawDate == "" {
 		return errors.New("no date value provided within the form")
 	}
@@ -71,24 +71,32 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	var sectionBlocks []slack.Block
-	headerText := slack.NewTextBlockObject("mrkdwn", "*Monthly Stats Update*", false, false)
-	headerSection := slack.NewHeaderBlock(headerText)
-	sectionBlocks = append(sectionBlocks, headerSection)
+	blocks := []slack.Block{
+		slack.NewSectionBlock(
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("BGE Slack member activity for the month of %s", date.Month()), false, false),
+			nil,
+			nil,
+		),
+		slack.NewDividerBlock(),
+		slack.NewSectionBlock(
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- With %d likes, the biggest karma whore of the month (most likes received) was <@%s>", leaderboard.MostReceivedLikesMember.ReceivedLikes, leaderboard.MostReceivedLikesMember.SlackUID), false, false),
+			nil,
+			nil,
+		),
+		slack.NewSectionBlock(
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- With %d dislikes, the one with the HOTTEST Friday takes (most dislikes received) was <@%s>", leaderboard.MostReceivedDislikesMember.ReceivedDislikes, leaderboard.MostReceivedDislikesMember.SlackUID), false, false),
+			nil,
+			nil,
+		),
+	}
 
-	mostLikesReceivedMembers := fmt.Sprintf("Most likes received this month (aka good boy of the month): <@%s> (%d)", leaderboard.MostReceivedLikesMember.SlackUID, leaderboard.MostReceivedLikesMember.ReceivedLikes)
-	sectionText := slack.NewTextBlockObject("mrkdwn", mostLikesReceivedMembers, false, false)
-	sectionBlocks = append(sectionBlocks, slack.NewSectionBlock(sectionText, nil, nil))
+	msg := slack.NewBlockMessage(blocks...)
 
-	mostDislikesReceivedMembers := fmt.Sprintf("Most dislikes received this month: <@%s> (%d)", leaderboard.MostReceivedDislikesMember.SlackUID, leaderboard.MostReceivedDislikesMember.ReceivedDislikes)
-	sectionText = slack.NewTextBlockObject("mrkdwn", mostDislikesReceivedMembers, false, false)
-	sectionBlocks = append(sectionBlocks, slack.NewSectionBlock(sectionText, nil, nil))
-
-	msg := slack.MsgOptionBlocks(sectionBlocks...)
-	_, _, err = s.client.PostMessage(s.ChannelID, msg)
+	_, _, err = s.client.PostMessage(s.ChannelID, slack.MsgOptionBlocks(msg.Blocks.BlockSet...))
 	if err != nil {
 		return fmt.Errorf("WeeklyUpdate PostMessage: %w", err)
 	}
+
 	return nil
 }
 
