@@ -56,6 +56,11 @@ func (db *DB) Open() (err error) {
 		return err
 	}
 
+	// verify data source name is valid.
+	if err := db.db.Ping(); err != nil {
+		return fmt.Errorf("ping: %w", err)
+	}
+
 	db.query = gen.New(db.db)
 
 	// Enable WAL as it allows multiple readers to operate while data is being written.

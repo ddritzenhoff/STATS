@@ -97,6 +97,7 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 		return fmt.Errorf("WeeklyUpdate PostMessage: %w", err)
 	}
 
+	s.logger.Info("published monthly update", slog.String("month", date.Month()))
 	return nil
 }
 
