@@ -34,8 +34,8 @@ type Slack struct {
 
 	// Dependencies
 	logger        *slog.Logger
-	SigningSecret string
-	ChannelID     string
+	signingSecret string
+	channelID     string
 }
 
 // NewSlackService creates a new instance of slackService.
@@ -45,12 +45,15 @@ func NewSlackService(logger *slog.Logger, ms statsd.MemberService, ls statsd.Lea
 		MemberService:      ms,
 		LeaderboardService: ls,
 		client:             slack.New(botSigningKey),
-		SigningSecret:      signingSecret,
-		ChannelID:          channelID,
+		signingSecret:      signingSecret,
+		channelID:          channelID,
 	}, nil
 }
 
 // HandleMonthlyUpdate sends a summary of the recorded metrics into Slack.
+//
+// Expecting x-www-form-urlencoded payload in the form of `date=<month>-<year>`.
+// I.e. to represent October 2023, the key=value combination would be `date=10-2023`.
 func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) error {
 	err := r.ParseForm()
 	if err != nil {
@@ -71,9 +74,14 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	month, err := date.Month()
+	if err != nil {
+		return err
+	}
+
 	blocks := []slack.Block{
 		slack.NewSectionBlock(
-			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("BGE Slack member activity for the month of %s", date.Month()), false, false),
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("BGE Slack member activity for the month of %s", month), false, false),
 			nil,
 			nil,
 		),
@@ -92,12 +100,12 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 
 	msg := slack.NewBlockMessage(blocks...)
 
-	_, _, err = s.client.PostMessage(s.ChannelID, slack.MsgOptionBlocks(msg.Blocks.BlockSet...))
+	_, _, err = s.client.PostMessage(s.channelID, slack.MsgOptionBlocks(msg.Blocks.BlockSet...))
 	if err != nil {
 		return fmt.Errorf("WeeklyUpdate PostMessage: %w", err)
 	}
 
-	s.logger.Info("published monthly update", slog.String("month", date.Month()))
+	s.logger.Info("published monthly update", slog.String("month", month))
 	return nil
 }
 
@@ -108,7 +116,7 @@ func (s *Slack) HandleEvents(w http.ResponseWriter, r *http.Request) error {
 		w.WriteHeader(http.StatusBadRequest)
 		return fmt.Errorf("HandleEvents: %w", err)
 	}
-	sv, err := slack.NewSecretsVerifier(r.Header, s.SigningSecret)
+	sv, err := slack.NewSecretsVerifier(r.Header, s.signingSecret)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return fmt.Errorf("HandleEvents: %w", err)

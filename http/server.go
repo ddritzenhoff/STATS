@@ -23,8 +23,8 @@ type Server struct {
 	router chi.Router
 
 	// Dependencies
-	Addr         string
-	SlackService Slacker
+	addr         string
+	slackService Slacker
 	logger       *slog.Logger
 }
 
@@ -35,8 +35,8 @@ func NewServer(logger *slog.Logger, serverAddr string, ss Slacker) *Server {
 		router: chi.NewRouter(),
 	}
 	// inject dependences
-	s.Addr = serverAddr
-	s.SlackService = ss
+	s.addr = serverAddr
+	s.slackService = ss
 	s.logger = logger
 
 	// create routes and attach handlers
@@ -53,10 +53,10 @@ func NewServer(logger *slog.Logger, serverAddr string, ss Slacker) *Server {
 // Open establishes a connection to an address and begins listening for requests.
 func (s *Server) Open() (err error) {
 	// Open a listener on the bind address
-	if s.ln, err = net.Listen("tcp", s.Addr); err != nil {
+	if s.ln, err = net.Listen("tcp", s.addr); err != nil {
 		return fmt.Errorf("Open: %w", err)
 	}
-	s.logger.Info("server listening", slog.String("address", s.Addr))
+	s.logger.Info("server listening", slog.String("address", s.addr))
 	go s.server.Serve(s.ln)
 	return nil
 }
@@ -70,7 +70,7 @@ func (s *Server) Close() error {
 
 // handleMonthlyUpdate generates and monthly slack summary and publishes it.
 func (s *Server) handleMonthlyUpdate(w http.ResponseWriter, r *http.Request) {
-	err := s.SlackService.HandleMonthlyUpdate(w, r)
+	err := s.slackService.HandleMonthlyUpdate(w, r)
 	if err != nil {
 		s.logger.Error(err.Error())
 	}
@@ -79,7 +79,7 @@ func (s *Server) handleMonthlyUpdate(w http.ResponseWriter, r *http.Request) {
 
 // handleEvents handles Slack push events.
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
-	err := s.SlackService.HandleEvents(w, r)
+	err := s.slackService.HandleEvents(w, r)
 	if err != nil {
 		s.logger.Error(err.Error())
 	}

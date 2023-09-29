@@ -24,35 +24,35 @@ type DB struct {
 	query *gen.Queries
 
 	// Datasource name
-	DSN string
+	dsn string
 
-	// Returns the current time. Defaults to time.Now().
+	// Returns the current time. Defaults to time.now().
 	// Can be mocked for tests.
-	Now func() time.Time
+	now func() time.Time
 }
 
 // NewDB returns a new instance of DB associated with the given datasource name.
 func NewDB(dsn string) *DB {
 	return &DB{
-		DSN: dsn,
-		Now: time.Now,
+		dsn: dsn,
+		now: time.Now,
 	}
 }
 
 // Open opens the database connection
 func (db *DB) Open() (err error) {
-	if db.DSN == "" {
+	if db.dsn == "" {
 		return fmt.Errorf("dsn required")
 	}
 
 	// Make the parent directory unless using an in-memory db.
-	if !strings.Contains(db.DSN, ":memory:") {
-		if err := os.MkdirAll(filepath.Dir(db.DSN), 0700); err != nil {
+	if !strings.Contains(db.dsn, ":memory:") {
+		if err := os.MkdirAll(filepath.Dir(db.dsn), 0700); err != nil {
 			return err
 		}
 	}
 
-	if db.db, err = sql.Open("sqlite3", db.DSN); err != nil {
+	if db.db, err = sql.Open("sqlite3", db.dsn); err != nil {
 		return err
 	}
 
@@ -103,7 +103,7 @@ func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	return &Tx{
 		Tx:  tx,
 		db:  db,
-		now: db.Now().UTC().Truncate(time.Second),
+		now: db.now().UTC().Truncate(time.Second),
 	}, nil
 }
 
