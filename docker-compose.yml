@@ -5,8 +5,7 @@ services:
       - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:?slack signing secret not set}
       - SLACK_BOT_SIGNING_KEY=${SLACK_BOT_SIGNING_KEY:?slack bot signing key not set}
       - SLACK_CHANNEL_ID=${SLACK_CHANNEL_ID:?slack channel id not set}
-    build:
-      context: .
+    image: ddritzenhoff/stats:latest
     container_name: statsd
     restart: unless-stopped
     ports:
