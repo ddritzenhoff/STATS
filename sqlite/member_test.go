@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ddritzenhoff/stats"
-	"github.com/ddritzenhoff/stats/sqlite"
+	"github.com/ddritzenhoff/statsd"
+	"github.com/ddritzenhoff/statsd/sqlite"
 )
 
 func TestMemberService_CreateMember(t *testing.T) {
@@ -16,11 +16,11 @@ func TestMemberService_CreateMember(t *testing.T) {
 		defer MustCloseDB(t, db)
 		ms := sqlite.NewMemberService(db)
 
-		monthYear, err := stats.NewMonthYearString("2006-05")
+		monthYear, err := statsd.NewMonthYearString("2006-05")
 		if err != nil {
 			t.Fatal(err)
 		}
-		m := &stats.Member{
+		m := &statsd.Member{
 			Date:     monthYear,
 			SlackUID: "U1ZN1SE2N",
 		}
@@ -41,11 +41,11 @@ func TestMemberService_CreateMember(t *testing.T) {
 		}
 
 		// Create second user with email.
-		monthYear, err = stats.NewMonthYearString("2006-05")
+		monthYear, err = statsd.NewMonthYearString("2006-05")
 		if err != nil {
 			t.Fatal(err)
 		}
-		m2 := &stats.Member{
+		m2 := &statsd.Member{
 			Date:     monthYear,
 			SlackUID: "U2ZN1SE2N",
 		}
@@ -68,9 +68,9 @@ func TestMemberService_CreateMember(t *testing.T) {
 		defer MustCloseDB(t, db)
 		ms := sqlite.NewMemberService(db)
 
-		if err := ms.CreateMember(&stats.Member{}); err == nil {
+		if err := ms.CreateMember(&statsd.Member{}); err == nil {
 			t.Fatal("expected error")
-		} else if !errors.Is(err, stats.ErrInvalid) {
+		} else if !errors.Is(err, statsd.ErrInvalid) {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -83,14 +83,14 @@ func TestMemberService_UpdateMember(t *testing.T) {
 		defer MustCloseDB(t, db)
 
 		ms := sqlite.NewMemberService(db)
-		m1 := MustCreateMember(t, db, &stats.Member{
-			Date:     stats.MonthYear("2006-05"),
+		m1 := MustCreateMember(t, db, &statsd.Member{
+			Date:     statsd.MonthYear("2006-05"),
 			SlackUID: "U2ZN1SE2N",
 		})
 
 		newReceivedLikes := 5
 		newReceivedDislikes := 23
-		m2, err := ms.UpdateMember(m1.ID, stats.MemberUpdate{
+		m2, err := ms.UpdateMember(m1.ID, statsd.MemberUpdate{
 			ReceivedLikes:    &newReceivedLikes,
 			ReceivedDislikes: &newReceivedDislikes,
 		})
@@ -118,7 +118,7 @@ func TestMemberService_FindMember(t *testing.T) {
 		db := MustOpenDB(t)
 		defer MustCloseDB(t, db)
 		ms := sqlite.NewMemberService(db)
-		if _, err := ms.FindMemberByID(1); !errors.Is(err, stats.ErrNotFound) {
+		if _, err := ms.FindMemberByID(1); !errors.Is(err, statsd.ErrNotFound) {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
@@ -126,14 +126,14 @@ func TestMemberService_FindMember(t *testing.T) {
 		db := MustOpenDB(t)
 		defer MustCloseDB(t, db)
 		ms := sqlite.NewMemberService(db)
-		if _, err := ms.FindMember("abc123", stats.MonthYear("hey")); !errors.Is(err, stats.ErrNotFound) {
+		if _, err := ms.FindMember("abc123", statsd.MonthYear("hey")); !errors.Is(err, statsd.ErrNotFound) {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 	})
 }
 
 // MustCreateMember creates a member in the database. Fatal on error.
-func MustCreateMember(tb testing.TB, db *sqlite.DB, m *stats.Member) *stats.Member {
+func MustCreateMember(tb testing.TB, db *sqlite.DB, m *statsd.Member) *statsd.Member {
 	tb.Helper()
 	if err := sqlite.NewMemberService(db).CreateMember(m); err != nil {
 		tb.Fatal(err)

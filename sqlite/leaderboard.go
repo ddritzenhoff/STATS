@@ -3,11 +3,11 @@ package sqlite
 import (
 	"context"
 
-	"github.com/ddritzenhoff/stats"
+	"github.com/ddritzenhoff/statsd"
 )
 
 // Ensure service implements interface.
-var _ stats.LeaderboardService = (*LeaderboardService)(nil)
+var _ statsd.LeaderboardService = (*LeaderboardService)(nil)
 
 // LeaderboardService represents a service for managing Members.
 type LeaderboardService struct {
@@ -23,7 +23,7 @@ func NewLeaderboardService(db *DB) *LeaderboardService {
 
 // FindLeaderboard retrives a Leadboard by its date (year and month).
 // Returns ErrNotFound if no matches are found.
-func (ls *LeaderboardService) FindLeaderboard(date stats.MonthYear) (*stats.Leaderboard, error) {
+func (ls *LeaderboardService) FindLeaderboard(date statsd.MonthYear) (*statsd.Leaderboard, error) {
 	genMostReceivedLikesMember, err := ls.db.query.MostLikesReceived(context.TODO(), date.String())
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (ls *LeaderboardService) FindLeaderboard(date stats.MonthYear) (*stats.Lead
 		return nil, err
 	}
 
-	return &stats.Leaderboard{
+	return &statsd.Leaderboard{
 		Date:                       date,
 		MostReceivedLikesMember:    *mostReceivedLikesMember,
 		MostReceivedDislikesMember: *mostReceivedDislikesMember,

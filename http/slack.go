@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ddritzenhoff/stats"
+	"github.com/ddritzenhoff/statsd"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
@@ -28,8 +28,8 @@ type Slacker interface {
 // Slack represents a service for handling specific Slack events.
 type Slack struct {
 	// Services used by Slack
-	LeaderboardService stats.LeaderboardService
-	MemberService      stats.MemberService
+	LeaderboardService statsd.LeaderboardService
+	MemberService      statsd.MemberService
 	client             *slack.Client
 
 	// Dependencies
@@ -39,7 +39,7 @@ type Slack struct {
 }
 
 // NewSlackService creates a new instance of slackService.
-func NewSlackService(logger *slog.Logger, ms stats.MemberService, ls stats.LeaderboardService, signingSecret string, botSigningKey string, channelID string) (Slacker, error) {
+func NewSlackService(logger *slog.Logger, ms statsd.MemberService, ls statsd.LeaderboardService, signingSecret string, botSigningKey string, channelID string) (Slacker, error) {
 	return &Slack{
 		logger:             logger,
 		MemberService:      ms,
@@ -61,7 +61,7 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 	if rawDate == "" {
 		return errors.New("no date value provided within the form")
 	}
-	date, err := stats.NewMonthYearString(rawDate)
+	date, err := statsd.NewMonthYearString(rawDate)
 	if err != nil {
 		return err
 	}
@@ -156,17 +156,17 @@ func (s *Slack) HandleEvents(w http.ResponseWriter, r *http.Request) error {
 }
 
 // HandleReactionEvent handles an event by updating the member with the specified slackUID.
-func (s *Slack) HandleReactionEvent(memSlackUID string, update func(m *stats.Member)) error {
+func (s *Slack) HandleReactionEvent(memSlackUID string, update func(m *statsd.Member)) error {
 	if memSlackUID == "USLACKBOT" || memSlackUID == "" {
 		s.logger.Info("reaction to invalid target", slog.String("target slackUID", memSlackUID))
 		return nil
 	}
-	monthYear := stats.NewMonthYear(time.Now().UTC())
+	monthYear := statsd.NewMonthYear(time.Now().UTC())
 
 	// Create the member if he does not already exist within the database.
 	mem, err := s.MemberService.FindMember(memSlackUID, monthYear)
-	if errors.Is(err, stats.ErrNotFound) {
-		m := &stats.Member{
+	if errors.Is(err, statsd.ErrNotFound) {
+		m := &statsd.Member{
 			SlackUID: memSlackUID,
 			Date:     monthYear,
 		}
@@ -183,7 +183,7 @@ func (s *Slack) HandleReactionEvent(memSlackUID string, update func(m *stats.Mem
 	update(mem)
 
 	// Update the stats of the User being reacted to.
-	m, err := s.MemberService.UpdateMember(mem.ID, stats.MemberUpdate{
+	m, err := s.MemberService.UpdateMember(mem.ID, statsd.MemberUpdate{
 		ReceivedLikes:    &mem.ReceivedLikes,
 		ReceivedDislikes: &mem.ReceivedDislikes,
 	})
@@ -198,11 +198,11 @@ func (s *Slack) HandleReactionEvent(memSlackUID string, update func(m *stats.Mem
 func (s *Slack) HandleReactionAddedEvent(e *slackevents.ReactionAddedEvent) error {
 	switch e.Reaction {
 	case ThumbsUp:
-		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+		return s.HandleReactionEvent(e.ItemUser, func(m *statsd.Member) {
 			m.ReceivedLikes += 1
 		})
 	case ThumbsDown:
-		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+		return s.HandleReactionEvent(e.ItemUser, func(m *statsd.Member) {
 			m.ReceivedDislikes += 1
 		})
 	}
@@ -213,11 +213,11 @@ func (s *Slack) HandleReactionAddedEvent(e *slackevents.ReactionAddedEvent) erro
 func (s *Slack) HandleReactionRemovedEvent(e *slackevents.ReactionRemovedEvent) error {
 	switch e.Reaction {
 	case ThumbsUp:
-		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+		return s.HandleReactionEvent(e.ItemUser, func(m *statsd.Member) {
 			m.ReceivedLikes = max(m.ReceivedLikes-1, 0)
 		})
 	case ThumbsDown:
-		return s.HandleReactionEvent(e.ItemUser, func(m *stats.Member) {
+		return s.HandleReactionEvent(e.ItemUser, func(m *statsd.Member) {
 			m.ReceivedDislikes = max(m.ReceivedDislikes-1, 0)
 		})
 	}

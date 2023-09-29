@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ddritzenhoff/stats/sqlite"
+	"github.com/ddritzenhoff/statsd/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 )
 

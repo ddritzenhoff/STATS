@@ -1,4 +1,4 @@
-module github.com/ddritzenhoff/stats
+module github.com/ddritzenhoff/statsd
 
 go 1.21
 

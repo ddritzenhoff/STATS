@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ddritzenhoff/stats/sqlite/gen"
+	"github.com/ddritzenhoff/statsd/sqlite/gen"
 )
 
 // embed the sqlite schema within the binary to create the tables at runtime.

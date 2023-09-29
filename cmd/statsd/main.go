@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/ddritzenhoff/stats/http"
-	"github.com/ddritzenhoff/stats/sqlite"
+	"github.com/ddritzenhoff/statsd/http"
+	"github.com/ddritzenhoff/statsd/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 )
 

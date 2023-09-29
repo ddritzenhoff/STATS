@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ddritzenhoff/stats"
-	"github.com/ddritzenhoff/stats/sqlite/gen"
+	"github.com/ddritzenhoff/statsd"
+	"github.com/ddritzenhoff/statsd/sqlite/gen"
 )
 
 // Ensure service implements interface.
-var _ stats.MemberService = (*MemberService)(nil)
+var _ statsd.MemberService = (*MemberService)(nil)
 
 // MemberService represents a service for managing Members.
 type MemberService struct {
@@ -28,7 +28,7 @@ func NewMemberService(db *DB) *MemberService {
 
 // FindMemberByID retrieves a Member by ID.
 // Returns ErrNotFound if the ID does not exist.
-func (ms *MemberService) FindMemberByID(id int) (*stats.Member, error) {
+func (ms *MemberService) FindMemberByID(id int) (*statsd.Member, error) {
 	tx, err := ms.db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (ms *MemberService) FindMemberByID(id int) (*stats.Member, error) {
 	// fetch member
 	genMember, err := ms.db.query.FindMemberByID(context.TODO(), int64(id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, stats.ErrNotFound
+		return nil, statsd.ErrNotFound
 	} else if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (ms *MemberService) FindMemberByID(id int) (*stats.Member, error) {
 
 // FindMember retrives a Member by his Slack User ID, the Month, and the Year.
 // Returns ErrNotFound if not matches found.
-func (ms *MemberService) FindMember(SlackUID string, date stats.MonthYear) (*stats.Member, error) {
+func (ms *MemberService) FindMember(SlackUID string, date statsd.MonthYear) (*statsd.Member, error) {
 	tx, err := ms.db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (ms *MemberService) FindMember(SlackUID string, date stats.MonthYear) (*sta
 	})
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, stats.ErrNotFound
+		return nil, statsd.ErrNotFound
 	} else if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (ms *MemberService) FindMember(SlackUID string, date stats.MonthYear) (*sta
 }
 
 // CreateMember creates a new Member.
-func (ms *MemberService) CreateMember(m *stats.Member) error {
+func (ms *MemberService) CreateMember(m *statsd.Member) error {
 	tx, err := ms.db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func (ms *MemberService) CreateMember(m *stats.Member) error {
 
 // UpdateMember updates a Member.
 // Returns ErrNotFound if the member does not exist.
-func (ms *MemberService) UpdateMember(id int, upd stats.MemberUpdate) (*stats.Member, error) {
+func (ms *MemberService) UpdateMember(id int, upd statsd.MemberUpdate) (*statsd.Member, error) {
 	tx, err := ms.db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("UpdateMember db.Begin: %w", err)
@@ -157,8 +157,8 @@ func (ms *MemberService) DeleteMember(id int) error {
 }
 
 // genMemberToMember converts the sqlite member type to the stats member type.
-func genMemberToMember(mem *gen.Member) (*stats.Member, error) {
-	date, err := stats.NewMonthYearString(mem.MonthYear)
+func genMemberToMember(mem *gen.Member) (*statsd.Member, error) {
+	date, err := statsd.NewMonthYearString(mem.MonthYear)
 	if err != nil {
 		return nil, err
 	}
@@ -170,5 +170,5 @@ func genMemberToMember(mem *gen.Member) (*stats.Member, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &stats.Member{ID: int(mem.ID), Date: date, SlackUID: mem.SlackUid, ReceivedLikes: int(mem.ReceivedLikes), ReceivedDislikes: int(mem.ReceivedDislikes), CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	return &statsd.Member{ID: int(mem.ID), Date: date, SlackUID: mem.SlackUid, ReceivedLikes: int(mem.ReceivedLikes), ReceivedDislikes: int(mem.ReceivedDislikes), CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
 }
