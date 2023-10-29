@@ -52,7 +52,7 @@ func NewSlackService(logger *slog.Logger, ms statsd.MemberService, ls statsd.Lea
 
 // HandleMonthlyUpdate sends a summary of the recorded metrics into Slack.
 //
-// Expecting x-www-form-urlencoded payload in the form of `date=<month>-<year>`.
+// Expecting x-www-form-urlencoded payload in the form of `channel=<channelID>&date=<month>-<year>`.
 // I.e. to represent October 2023, the key=value combination would be `date=10-2023`.
 func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) error {
 	err := r.ParseForm()
@@ -60,6 +60,10 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	channelID := r.PostForm.Get("channel")
+	if channelID == "" {
+		return errors.New("no channel value provided within the form")
+	}
 	rawDate := r.PostForm.Get("date")
 	if rawDate == "" {
 		return errors.New("no date value provided within the form")
@@ -92,7 +96,7 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 			nil,
 		),
 		slack.NewSectionBlock(
-			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- With %d dislikes, the one with the HOTTEST Friday takes (most dislikes received) was <@%s>", leaderboard.MostReceivedDislikesMember.ReceivedDislikes, leaderboard.MostReceivedDislikesMember.SlackUID), false, false),
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- With %d dislikes, the one with the HOTTEST takes (most dislikes received) was <@%s>", leaderboard.MostReceivedDislikesMember.ReceivedDislikes, leaderboard.MostReceivedDislikesMember.SlackUID), false, false),
 			nil,
 			nil,
 		),
@@ -100,7 +104,7 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 
 	msg := slack.NewBlockMessage(blocks...)
 
-	_, _, err = s.client.PostMessage(s.channelID, slack.MsgOptionBlocks(msg.Blocks.BlockSet...))
+	_, _, err = s.client.PostMessage(channelID, slack.MsgOptionBlocks(msg.Blocks.BlockSet...))
 	if err != nil {
 		return fmt.Errorf("WeeklyUpdate PostMessage: %w", err)
 	}
