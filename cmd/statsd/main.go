@@ -55,7 +55,6 @@ type Main struct {
 func (m *Main) Run(ctx context.Context) error {
 	signingSecret := os.Getenv("SLACK_SIGNING_SECRET")
 	botSigningKey := os.Getenv("SLACK_BOT_SIGNING_KEY")
-	channelID := os.Getenv("SLACK_CHANNEL_ID")
 
 	m.DB = sqlite.NewDB(DSN)
 	if err := m.DB.Open(); err != nil {
@@ -65,7 +64,7 @@ func (m *Main) Run(ctx context.Context) error {
 	memberService := sqlite.NewMemberService(m.DB)
 	leaderboardService := sqlite.NewLeaderboardService(m.DB)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	slackService, err := http.NewSlackService(logger, memberService, leaderboardService, signingSecret, botSigningKey, channelID)
+	slackService, err := http.NewSlackService(logger, memberService, leaderboardService, signingSecret, botSigningKey)
 	if err != nil {
 		return fmt.Errorf("Run NewSlackService: %w", err)
 	}

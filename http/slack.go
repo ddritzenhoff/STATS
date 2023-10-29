@@ -35,18 +35,16 @@ type Slack struct {
 	// Dependencies
 	logger        *slog.Logger
 	signingSecret string
-	channelID     string
 }
 
 // NewSlackService creates a new instance of slackService.
-func NewSlackService(logger *slog.Logger, ms statsd.MemberService, ls statsd.LeaderboardService, signingSecret string, botSigningKey string, channelID string) (Slacker, error) {
+func NewSlackService(logger *slog.Logger, ms statsd.MemberService, ls statsd.LeaderboardService, signingSecret string, botSigningKey string) (Slacker, error) {
 	return &Slack{
 		logger:             logger,
 		MemberService:      ms,
 		LeaderboardService: ls,
 		client:             slack.New(botSigningKey),
 		signingSecret:      signingSecret,
-		channelID:          channelID,
 	}, nil
 }
 
