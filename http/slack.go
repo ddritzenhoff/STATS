@@ -94,7 +94,7 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 			nil,
 		),
 		slack.NewSectionBlock(
-			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- most dislikes received: <@%s> with %d dislikes", leaderboard.MostReceivedDislikesMember.SlackUID, leaderboard.MostReceivedDislikesMember.ReceivedDislikes), false, false),
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- hottest takes (most dislikes received): <@%s> with %d dislikes", leaderboard.MostReceivedDislikesMember.SlackUID, leaderboard.MostReceivedDislikesMember.ReceivedDislikes), false, false),
 			nil,
 			nil,
 		),
