@@ -83,18 +83,18 @@ func (s *Slack) HandleMonthlyUpdate(w http.ResponseWriter, r *http.Request) erro
 
 	blocks := []slack.Block{
 		slack.NewSectionBlock(
-			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("BGE Slack member activity for the month of %s", month), false, false),
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("Slack member activity for the month of %s", month), false, false),
 			nil,
 			nil,
 		),
 		slack.NewDividerBlock(),
 		slack.NewSectionBlock(
-			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- With %d likes, the biggest karma whore of the month (most likes received) was <@%s>", leaderboard.MostReceivedLikesMember.ReceivedLikes, leaderboard.MostReceivedLikesMember.SlackUID), false, false),
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- most likes received: <@%s> with %d likes", leaderboard.MostReceivedLikesMember.SlackUID, leaderboard.MostReceivedLikesMember.ReceivedLikes), false, false),
 			nil,
 			nil,
 		),
 		slack.NewSectionBlock(
-			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- With %d dislikes, the one with the HOTTEST takes (most dislikes received) was <@%s>", leaderboard.MostReceivedDislikesMember.ReceivedDislikes, leaderboard.MostReceivedDislikesMember.SlackUID), false, false),
+			slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("- most dislikes received: <@%s> with %d dislikes", leaderboard.MostReceivedDislikesMember.SlackUID, leaderboard.MostReceivedDislikesMember.ReceivedDislikes), false, false),
 			nil,
 			nil,
 		),
